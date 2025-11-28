@@ -1,5 +1,7 @@
+import { LoginFlow } from "@ory/client";
+import { useRouter } from "next/router";
 import type { NextPage } from "next";
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import PageLayout from "../components/PageLayout";
 import { Button, Input } from "@canonical/react-components";
 import { handleFlowError } from "../util/handleFlowError";
@@ -9,21 +11,7 @@ import { FlowResponse } from "./consent";
 const RegisterEmail: NextPage = () => {
 	const [flow, setFlow] = useState<LoginFlow>();
 	const router = useRouter();
-	const {
-		return_to: returnTo,
-		flow: flowId,
-		// Refresh means we want to refresh the session. This is needed, for example, when we want to update the password
-		// of a user.
-		refresh,
-		// AAL = Authorization Assurance Level. This implies that we want to upgrade the AAL, meaning that we want
-		// to perform two-factor authentication/verification.
-		aal,
-		login_challenge,
-		use_backup_code: useBackupCode,
-		email,
-		invalid_method,
-		pw_changed: pwChanged,
-	} = router.query;
+	const { return_to: returnTo, flow: flowId, login_challenge } = router.query;
 
 	const redirectToErrorPage = () => {
 		const idParam = flowId ? `?id=${flowId.toString()}` : "";
@@ -60,25 +48,19 @@ const RegisterEmail: NextPage = () => {
 		};
 
 		kratos
-			.createBrowserLoginFlow({
-				refresh: Boolean(refresh),
-				aal: aal ? String(aal) : undefined,
+			.createBrowserRegistrationFlow({
 				returnTo: getReturnTo(),
 				loginChallenge: login_challenge ? String(login_challenge) : undefined,
 			})
 			.then(async ({ data }: FlowResponse) => {
 				if (data.redirect_to !== undefined) {
-					const addendum = data.redirect_to.includes("?") ? "&" : "?";
-					const pwParam = pwChanged
-						? `${addendum}pw_changed=${pwChanged as string}`
-						: "";
-					window.location.href = `${data.redirect_to}${pwParam}`;
+					window.location.href = data.redirect_to;
 					return;
 				}
 
 				await router.replace(
 					{
-						pathname: "/ui/login",
+						pathname: "/ui/register",
 						query: {
 							...router.query,
 							flow: data.id,
@@ -92,16 +74,7 @@ const RegisterEmail: NextPage = () => {
 			})
 			.catch(handleFlowError("login", setFlow))
 			.catch(redirectToErrorPage);
-	}, [
-		flowId,
-		router,
-		router.isReady,
-		aal,
-		refresh,
-		returnTo,
-		flow,
-		login_challenge,
-	]);
+	}, [flowId, router, router.isReady, returnTo, flow, login_challenge]);
 
 	return (
 		<PageLayout title="Create an account">
